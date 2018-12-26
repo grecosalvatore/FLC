@@ -1,0 +1,20 @@
+DIFFERENCES:
+
+1) SCANNER
+
+ - in the working version are added the regular expression of token1,token2,token3 and price.
+
+2) PARSER
+
+ - in the first session (distance ) the only differences are on the construction of the type as object or normal variable
+
+ - in the time list in the exam version print only the 0 item and not all the count, i implemented  this passing as result a onject[2] with partial total and also count
+
+ - for the EXTRA discount part the values of stack are different beacuse i didn't understand if the optional part is DISC word or <disc> item and then i didn't implemented the case where there is
+   only   <expr> and not <disc>
+
+- due to the not correct understanding of extra part i did t substract the general extra discount
+
+ - i have changed same names of non terminal symbol only beacuse are more clear
+
+ - in the exam version i have the FLOAT terminal but when i added the price in the scanner they became a price that have only two digital after the dot

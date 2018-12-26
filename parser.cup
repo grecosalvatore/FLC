@@ -1,0 +1,275 @@
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+ 
+init with {:
+    table = new HashMap();
+:};
+ 
+parser code 	{:
+ 
+    public static HashMap table;
+ 
+    public void report_error(String message, Object info) {
+        StringBuffer m = new StringBuffer(message);
+        if (info instanceof Symbol) {
+            if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+                if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+                    int line = (((Symbol)info).left) + 1;
+                    int column = (((Symbol)info).right) + 1;
+                    m.append(" (line " + line + " column " + column + ")");
+                }
+            }
+            System.err.println(m);
+        }
+    }
+ 
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos + position)).value);
+    }
+:};
+ 
+ 
+ 
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+ 
+terminal TOKEN1, TOKEN2, TOKEN3;
+terminal KM, KMH, ARROW, SEP,COMPUTE,TO,PERC,EUROKM,LINE,EURO,DISC,TIME,EXPENSE,EXTRA;
+terminal EQ, PIPE, CM, S, COL, RO, RC, SO, SC;
+terminal String QSTRING;
+terminal Integer UINT;
+terminal Float PRICE,FLOAT_TYPE;
+ 
+non terminal prog, token3_l , header , distancel, computel,distance,nel,el,commands,type;
+non terminal HashMap destinationl;
+non terminal Float exp,disc,expenseextral,expensel;
+non terminal Object[] timel;
+ 
+ 
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+ 
+start with prog;
+ 
+prog ::= header SEP commands;
+ 
+/******************/
+/* Header section */
+/******************/
+header ::=  token3_l TOKEN1 S token3_l TOKEN1 S token3_l  TOKEN2 S token3_l 
+         | token3_l TOKEN1 S token3_l TOKEN2 S token3_l  TOKEN1 S token3_l
+	 | token3_l TOKEN2 S token3_l TOKEN1 S token3_l  TOKEN1 S token3_l
+;	
+ 
+token3_l ::= 
+	     |	token3_l TOKEN3 S ;
+
+ 
+ 
+/****************/
+/* Commands section - distance*/
+/****************/
+commands ::= distancel computel;
+
+distancel ::= distance distance distance
+		| distancel distance distance;
+ 
+
+distance ::= QSTRING:s ARROW destinationl:h S  {: 
+			//put inside global hashtable
+			parser.table.put(s,h); :}
+;
+
+destinationl ::= QSTRING:s FLOAT_TYPE:f KM {:
+			 HashMap h = new HashMap();
+			 h.put(s, f);
+			 RESULT = h;	
+			:}
+		| destinationl:h CM QSTRING:s FLOAT_TYPE:f KM {: h.put(s, f);
+							    RESULT = h; :}
+;
+
+
+ 
+/****************/
+/* Commands section - compute*/
+/****************/
+
+computel ::=
+	    | nel;
+
+nel ::= el
+	| nel el el;
+
+el ::= COMPUTE QSTRING TO QSTRING type 
+;
+
+
+type ::= TIME COL timel:t S  {:
+						//here can print the total
+						float tot = Float.parseFloat(t[1].toString());
+						System.out.println("TOT: " + tot);
+			:}
+	| EXPENSE COL expensel:e S			{://here can print the min
+							System.out.println("MIN: " + e);:}
+	| EXPENSE EXTRA PRICE COL expenseextral:e S	{://here can print the min
+							System.out.println("MIN: " + e);
+							:}
+;
+
+timel ::= UINT:p PERC UINT:s KMH   {:
+					HashMap h = (HashMap)parser.table.get((String)parser.stack(-8));
+					String name = (String)parser.stack(-6);
+					
+					float distance = (float) h.get(name);
+					float tot = distance * p /100 / s;
+					System.out.println("0 " + tot);
+					RESULT  = new Object[2];
+					RESULT[0] = new Integer(0);
+					RESULT[1] = new Float(tot); 
+					:}
+
+	  | timel:t CM UINT:p PERC UINT:s KMH	 {:
+					HashMap h = (HashMap)parser.table.get((String)parser.stack(-10));
+					float distance = (float)h.get((String)parser.stack(-8));
+					float tot = distance * p /100 / s;
+					int count = Integer.parseInt(t[0].toString()) + 1 ;
+					System.out.println(count + " " + tot);
+					RESULT  = new Object[2];
+					RESULT[0] = new Integer(count);
+					RESULT[1] = new Float(tot + Float.parseFloat(t[1].toString())); 
+					 :}
+;
+
+
+
+
+expensel ::= QSTRING:s exp:e LINE disc:d	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-8));
+						float distance = (float)h.get((String)parser.stack(-6));
+						float res = distance *e - d;
+						System.out.println(s + " " + res);
+						RESULT = res;
+						:}
+	
+	| QSTRING:s disc:d LINE exp:e		{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-8));
+						float distance = (float)h.get((String)parser.stack(-6));
+						float res = distance *e - d;
+						System.out.println(s + " " + res);
+						RESULT = res;:}
+
+
+	| QSTRING:s exp:e			{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-6));
+						float distance = (float)h.get((String)parser.stack(-4));
+						float res = distance *e ;
+						System.out.println(s + " " + res);
+						RESULT = res;:}
+
+
+	| expensel:ex CM QSTRING:s exp:e LINE disc:d	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-10));
+							float distance = (float)h.get((String)parser.stack(-8));
+							float res = distance *e - d;
+							System.out.println(s + " " + res);
+							if (ex<res){
+								RESULT = ex;
+							}else{
+								RESULT = res;						
+							}:}
+	
+	| expensel:ex CM QSTRING:s disc:d LINE exp:e	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-10));
+							float distance = (float)h.get((String)parser.stack(-8));
+							float res = distance *e - d;
+							System.out.println(s + " " + res);
+							if (ex<res){
+								RESULT = ex;
+							}else{
+								RESULT = res;						
+							}:}
+	| expensel:ex CM QSTRING:s exp:e 	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-8));
+						float distance = (float)h.get((String)parser.stack(-6));
+						float res = distance *e ;
+						System.out.println(s + " " + res);
+						if (ex<res){
+							RESULT = ex;
+						}else{
+							RESULT = res;						
+						}:}
+;
+
+
+
+
+//have also EXTRA  and a number in the stack
+expenseextral ::= QSTRING:s exp:e LINE disc:d	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-10));
+						float distance = (float)h.get((String)parser.stack(-8));
+						float res = distance *e - d;
+						float discount = (float)parser.stack(-5);
+						res = res - discount;
+						System.out.println(s + " " + res);
+						RESULT = res;
+						:}
+	
+	| QSTRING:s disc:d LINE exp:e		{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-10));
+						float distance = (float)h.get((String)parser.stack(-8));
+						float res = distance *e - d;
+						float discount = (float)parser.stack(-5);
+						res = res - discount;
+						System.out.println(s + " " + res);
+						RESULT = res;:}
+
+
+	| QSTRING:s exp:e			{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-8));
+						float distance = (float)h.get((String)parser.stack(-6));
+						float res = distance *e ;
+						float discount = (float)parser.stack(-3);
+						res = res - discount;
+						System.out.println(s+ " " + res);
+						RESULT = res;:}
+
+
+	| expenseextral:ex CM QSTRING:s exp:e LINE disc:d	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-12));
+							float distance = (float)h.get((String)parser.stack(-10));
+							float res = distance *e - d;
+							float discount = (float)parser.stack(-7);
+							res = res - discount;
+							System.out.println(s + " " + res);
+							if (ex<res){
+								RESULT = ex;
+							}else{
+								RESULT = res;						
+							}:}
+	
+	| expenseextral:ex CM QSTRING:s disc:d LINE exp:e	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-12));
+							float distance = (float)h.get((String)parser.stack(-10));
+							float res = distance *e - d;
+							float discount = (float)parser.stack(-7);
+							res = res - discount;
+							System.out.println(s + " " + res);
+							if (ex<res){
+								RESULT = ex;
+							}else{
+								RESULT = res;						
+							}:}
+	| expenseextral:ex CM QSTRING:s exp:e 	{:HashMap h = (HashMap)parser.table.get((String)parser.stack(-10));
+						float distance = (float)h.get((String)parser.stack(-8));
+						float res = distance *e ;
+						float discount = (float)parser.stack(-5);
+						res = res - discount;
+						System.out.println(s + " " + res);
+						if (ex<res){
+							RESULT = ex;
+						}else{
+							RESULT = res;						
+						}:}
+;
+
+
+exp ::= PRICE:f EUROKM {: RESULT = f; :}
+;
+
+disc ::=  DISC PRICE:f EURO {: RESULT = f; :}
+;
+
+
